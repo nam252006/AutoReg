@@ -235,7 +235,7 @@ elseif currentPlaceId == GAME_PLACEID then
     local function generateRandomName()
         local chars = "abcdefghijklmnopqrstuvwxyz0123456789"
         local name = ""
-        for i = 1, math.random(6, 12) do
+        for i = 1, math.random(6, 10) do
             local rand = math.random(1, #chars)
             name = name .. chars:sub(rand, rand)
         end
