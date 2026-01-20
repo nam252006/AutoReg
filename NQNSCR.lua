@@ -257,33 +257,19 @@ elseif currentPlaceId == GAME_PLACEID then
     
     -- Function to leave Roblox
     local function leaveRoblox()
-        print("⏳ Waiting 5 seconds before leaving...")
+        print("⏳ Waiting 5 seconds before closing game...")
         task.wait(5)
         
-        print("🚪 Leaving Roblox...")
-        print("→ Pressing ESC")
-        pressKey(Enum.KeyCode.Escape)
-        task.wait(0.5)
-        
-        print("→ Pressing L")
-        pressKey(Enum.KeyCode.L)
-        task.wait(0.5)
-        
-        print("→ Pressing Enter (1st)")
-        pressKey(Enum.KeyCode.Return)
-        task.wait(0.3)
-        
-        print("→ Pressing Enter (2nd - confirm)")
-        pressKey(Enum.KeyCode.Return)
-        task.wait(0.5)
-        
-        print("✅ Leave sequence completed!")
+        print("🚪 Closing Roblox...")
         ArrayField:Notify({
-            Title = "Leaving Game",
-            Content = "Disconnecting from Roblox...",
+            Title = "Closing Game",
+            Content = "Shutting down Roblox...",
             Duration = 3,
             Image = 4483362458
         })
+        
+        task.wait(1)
+        game:Shutdown()
     end
     
     -- Webhook function
