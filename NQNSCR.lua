@@ -231,14 +231,46 @@ elseif currentPlaceId == GAME_PLACEID then
         end)
     end
     
-    -- Helper Functions
+    -- Helper Functions - FIXED SAFE NAME GENERATOR
     local function generateRandomName()
-        local chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        -- Sử dụng prefix an toàn + số ngẫu nhiên
+        local prefixes = {
+            "Player", "User", "Gamer", "Pro", "Master",
+            "Hero", "King", "Boss", "Chief", "Lord",
+            "Captain", "Agent", "Shadow", "Nova", "Storm",
+            "Blade", "Wolf", "Tiger", "Dragon", "Phoenix",
+            "Knight", "Warrior", "Hunter", "Ranger", "Striker"
+        }
+        
+        local suffixes = {
+            "X", "Z", "Alpha", "Beta", "Prime",
+            "Max", "Ultra", "Mega", "Super", "Elite",
+            "Pro", "God", "Ace", "Star", "Legend"
+        }
+        
+        -- Random format
+        local formatType = math.random(1, 4)
         local name = ""
-        for i = 1, math.random(6, 10) do
-            local rand = math.random(1, #chars)
-            name = name .. chars:sub(rand, rand)
+        
+        if formatType == 1 then
+            -- Format: PrefixNumber (VD: Player1234)
+            name = prefixes[math.random(1, #prefixes)] .. math.random(100, 9999)
+        elseif formatType == 2 then
+            -- Format: PrefixSuffix (VD: PlayerMax)
+            name = prefixes[math.random(1, #prefixes)] .. suffixes[math.random(1, #suffixes)]
+        elseif formatType == 3 then
+            -- Format: PrefixSuffixNumber (VD: PlayerMax123)
+            name = prefixes[math.random(1, #prefixes)] .. suffixes[math.random(1, #suffixes)] .. math.random(10, 999)
+        else
+            -- Format: PrefixNumberSuffix (VD: Player123Max)
+            name = prefixes[math.random(1, #prefixes)] .. math.random(10, 999) .. suffixes[math.random(1, #suffixes)]
         end
+        
+        -- Giới hạn độ dài (Roblox max 20 ký tự)
+        if #name > 20 then
+            name = prefixes[math.random(1, #prefixes)] .. math.random(100, 999)
+        end
+        
         return name
     end
     
@@ -595,16 +627,16 @@ elseif currentPlaceId == GAME_PLACEID then
     
     -- Main Auto Function
     local function runAutoSequence()
-        if not _G.NQN_Running or not autoRunning then return end  -- Check if still running
+        if not _G.NQN_Running or not autoRunning then return end
         
         task.wait(3)
         
-        if not _G.NQN_Running or not autoRunning then return end  -- Check again after wait
+        if not _G.NQN_Running or not autoRunning then return end
         
         local success = pcall(function()
             local completed = runFullSequence()
             
-            if not _G.NQN_Running or not autoRunning then return end  -- Check if stopped during sequence
+            if not _G.NQN_Running or not autoRunning then return end
             
             if completed then
                 print("✅ Sequence completed successfully!")
@@ -633,7 +665,7 @@ elseif currentPlaceId == GAME_PLACEID then
         end)
         
         if not success then
-            if not _G.NQN_Running or not autoRunning then return end  -- Don't restart if manually stopped
+            if not _G.NQN_Running or not autoRunning then return end
             
             retryCount = retryCount + 1
             print("❌ Error occurred! Restarting... (Retry: " .. retryCount .. ")")
