@@ -257,19 +257,31 @@ elseif currentPlaceId == GAME_PLACEID then
     
     -- Function to leave Roblox
     local function leaveRoblox()
-        print("⏳ Waiting 5 seconds before closing game...")
+        print("⏳ Waiting 5 seconds before closing Roblox...")
         task.wait(5)
         
-        print("🚪 Closing Roblox...")
+        print("🚪 Closing Roblox completely...")
         ArrayField:Notify({
-            Title = "Closing Game",
-            Content = "Shutting down Roblox...",
+            Title = "Closing Roblox",
+            Content = "Shutting down completely...",
             Duration = 3,
             Image = 4483362458
         })
         
         task.wait(1)
-        game:Shutdown()
+        
+        -- Close Roblox process completely
+        pcall(function()
+            local success = pcall(function()
+                -- Method 1: Close via Windows command
+                os.execute('taskkill /F /IM RobloxPlayerBeta.exe')
+            end)
+            
+            if not success then
+                -- Method 2: Shutdown game first
+                game:Shutdown()
+            end
+        end)
     end
     
     -- Webhook function
@@ -297,6 +309,12 @@ elseif currentPlaceId == GAME_PLACEID then
             elseif fiendType == "Gun Fiend" then
                 color = 10181046
                 emoji = "🔫"
+            elseif fiendType == "Blood Fiend" then
+                color = 15548997
+                emoji = "🩸"
+            elseif fiendType == "Angel Fiend" then
+                color = 16777215
+                emoji = "👼"
             end
             
             local data = {
@@ -395,6 +413,8 @@ elseif currentPlaceId == GAME_PLACEID then
             local hasNailFiend = false
             local hasSharkFiend = false
             local hasGunFiend = false
+            local hasBloodFiend = false
+            local hasAngelFiend = false
             
             print("📋 Scanning for Fiend parts...")
             
@@ -416,6 +436,16 @@ elseif currentPlaceId == GAME_PLACEID then
                         print("🔫 FOUND: Gun part (" .. childName .. ")")
                         hasGunFiend = true
                     end
+                    
+                    if string.find(childName, "Stage 2 Horn") or string.find(childName, "Stage 3 Horn") or string.find(childName, "Stage2Horn") or string.find(childName, "Stage3Horn") then
+                        print("🩸 FOUND: Blood Fiend horn (" .. childName .. ")")
+                        hasBloodFiend = true
+                    end
+                    
+                    if string.find(childName, "Wings") or string.find(childName, "Wing") then
+                        print("👼 FOUND: Angel Fiend wings (" .. childName .. ")")
+                        hasAngelFiend = true
+                    end
                 end
             end
             
@@ -427,6 +457,10 @@ elseif currentPlaceId == GAME_PLACEID then
                 return "Shark Fiend"
             elseif hasGunFiend then
                 return "Gun Fiend"
+            elseif hasBloodFiend then
+                return "Blood Fiend"
+            elseif hasAngelFiend then
+                return "Angel Fiend"
             else
                 return nil
             end
