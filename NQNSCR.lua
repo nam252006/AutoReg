@@ -1,6 +1,6 @@
--- Load ArrayField Library
-local ArrayField = loadstring(game:HttpGet("https://raw.githubusercontent.com/UI-Interface/ArrayField/main/Source.lua",true))()
-
+-- Anti-freeze protection
+local success, err = pcall(function()
+    
 -- Destroy old UI if exists
 if _G.NQN_Window then
     pcall(function()
@@ -10,6 +10,26 @@ end
 if _G.NQN_Running then
     _G.NQN_Running = false
 end
+
+-- Wait for game to load
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+print("🔄 Loading ArrayField Library...")
+
+-- Load ArrayField Library with timeout
+local ArrayField
+local loadSuccess = pcall(function()
+    ArrayField = loadstring(game:HttpGet("https://raw.githubusercontent.com/UI-Interface/ArrayField/main/Source.lua",true))()
+end)
+
+if not loadSuccess or not ArrayField then
+    warn("❌ Failed to load ArrayField library!")
+    return
+end
+
+print("✅ ArrayField loaded successfully!")
 
 -- Get PlaceId
 local currentPlaceId = game.PlaceId
@@ -22,11 +42,31 @@ local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
 
--- Wait for player
-Players.LocalPlayer:WaitForChild("PlayerGui")
-wait(2)
+-- Wait for player with timeout
+local player = Players.LocalPlayer
+if not player then
+    warn("❌ LocalPlayer not found!")
+    return
+end
+
+local timeout = 10
+local waited = 0
+while not player:FindFirstChild("PlayerGui") and waited < timeout do
+    task.wait(0.5)
+    waited = waited + 0.5
+end
+
+if not player:FindFirstChild("PlayerGui") then
+    warn("❌ PlayerGui not found after timeout!")
+    return
+end
+
+print("✅ Player loaded!")
+task.wait(1)
 
 if currentPlaceId == MENU_PLACEID then
+    print("📍 Menu Place detected")
+    
     -- ===== MENU UI =====
     local Window = ArrayField:CreateWindow({
         Name = "Ngô Quang Nam - guns.lol/shopbss",
@@ -103,7 +143,7 @@ if currentPlaceId == MENU_PLACEID then
     local function runAuto()
         if not autoRunning then return end
         clickPlay()
-        wait(2)
+        task.wait(2)
         fireSlot(selectedSlot)
     end
     
@@ -124,7 +164,7 @@ if currentPlaceId == MENU_PLACEID then
                     Duration = 3,
                     Image = 4483362458
                 })
-                runAuto()
+                task.spawn(runAuto)
             end
         end
     })
@@ -153,18 +193,25 @@ if currentPlaceId == MENU_PLACEID then
     local Label = MainTab:CreateLabel("Slot: " .. selectedSlot)
     local StatusLabel = MainTab:CreateLabel("Status: Idle")
     
-    spawn(function()
-        while wait(0.5) do
+    task.spawn(function()
+        while task.wait(0.5) do
             pcall(function()
-                Label:Set("Slot: " .. selectedSlot)
-                StatusLabel:Set("Status: " .. (autoRunning and "Running" or "Idle"))
+                if Label and Label.Set then
+                    Label:Set("Slot: " .. selectedSlot)
+                end
+                if StatusLabel and StatusLabel.Set then
+                    StatusLabel:Set("Status: " .. (autoRunning and "Running" or "Idle"))
+                end
             end)
         end
     end)
     
     ArrayField:LoadConfiguration()
+    print("✅ Menu UI loaded!")
 
 elseif currentPlaceId == GAME_PLACEID then
+    print("📍 Game Place detected")
+    
     -- ===== GAME UI =====
     local Window = ArrayField:CreateWindow({
         Name = "Ngô Quang Nam - guns.lol/shopbss",
@@ -231,44 +278,32 @@ elseif currentPlaceId == GAME_PLACEID then
         end)
     end
     
-    -- Helper Functions - FIXED SAFE NAME GENERATOR
+    -- Helper Functions - SAFE NAME GENERATOR (MAX 10 CHARS)
     local function generateRandomName()
-        -- Sử dụng prefix an toàn + số ngẫu nhiên
         local prefixes = {
-            "Player", "User", "Gamer", "Pro", "Master",
-            "Hero", "King", "Boss", "Chief", "Lord",
-            "Captain", "Agent", "Shadow", "Nova", "Storm",
-            "Blade", "Wolf", "Tiger", "Dragon", "Phoenix",
-            "Knight", "Warrior", "Hunter", "Ranger", "Striker"
+            "Pro", "Max", "Ace", "God", "Rex",
+            "Hex", "Sky", "Zen", "Kai", "Ray",
+            "Leo", "Jay", "Sam", "Ben", "Ken"
         }
         
-        local suffixes = {
-            "X", "Z", "Alpha", "Beta", "Prime",
-            "Max", "Ultra", "Mega", "Super", "Elite",
-            "Pro", "God", "Ace", "Star", "Legend"
-        }
-        
-        -- Random format
-        local formatType = math.random(1, 4)
+        local formatType = math.random(1, 3)
         local name = ""
         
         if formatType == 1 then
-            -- Format: PrefixNumber (VD: Player1234)
-            name = prefixes[math.random(1, #prefixes)] .. math.random(100, 9999)
+            -- Format: Prefix + 4 số (VD: Pro1234)
+            name = prefixes[math.random(1, #prefixes)] .. math.random(1000, 9999)
         elseif formatType == 2 then
-            -- Format: PrefixSuffix (VD: PlayerMax)
-            name = prefixes[math.random(1, #prefixes)] .. suffixes[math.random(1, #suffixes)]
-        elseif formatType == 3 then
-            -- Format: PrefixSuffixNumber (VD: PlayerMax123)
-            name = prefixes[math.random(1, #prefixes)] .. suffixes[math.random(1, #suffixes)] .. math.random(10, 999)
+            -- Format: Prefix + 5 số (VD: Max12345)
+            name = prefixes[math.random(1, #prefixes)] .. math.random(10000, 99999)
         else
-            -- Format: PrefixNumberSuffix (VD: Player123Max)
-            name = prefixes[math.random(1, #prefixes)] .. math.random(10, 999) .. suffixes[math.random(1, #suffixes)]
+            -- Format: Prefix + 3 số + chữ (VD: Ace123X)
+            local letters = "XYZABCDEFGH"
+            name = prefixes[math.random(1, #prefixes)] .. math.random(100, 999) .. letters:sub(math.random(1, #letters), math.random(1, #letters))
         end
         
-        -- Giới hạn độ dài (Roblox max 20 ký tự)
-        if #name > 20 then
-            name = prefixes[math.random(1, #prefixes)] .. math.random(100, 999)
+        -- Đảm bảo không quá 10 ký tự
+        if #name > 10 then
+            name = prefixes[math.random(1, #prefixes)] .. math.random(1000, 9999)
         end
         
         return name
@@ -302,17 +337,8 @@ elseif currentPlaceId == GAME_PLACEID then
         
         task.wait(1)
         
-        -- Close Roblox process completely
         pcall(function()
-            local success = pcall(function()
-                -- Method 1: Close via Windows command
-                os.execute('taskkill /F /IM RobloxPlayerBeta.exe')
-            end)
-            
-            if not success then
-                -- Method 2: Shutdown game first
-                game:Shutdown()
-            end
+            game:Shutdown()
         end)
     end
     
@@ -678,7 +704,6 @@ elseif currentPlaceId == GAME_PLACEID then
     
     -- ===== UI =====
     
-    -- MAIN SECTION
     MainTab:CreateSection("Main")
     
     MainTab:CreateToggle({
@@ -710,7 +735,6 @@ elseif currentPlaceId == GAME_PLACEID then
         end
     })
     
-    -- Auto-start if was enabled
     if autoRunning then
         task.spawn(function()
             task.wait(0.5)
@@ -744,7 +768,6 @@ elseif currentPlaceId == GAME_PLACEID then
         end
     })
     
-    -- WEBHOOK SECTION
     MainTab:CreateSection("Webhook Settings")
     
     MainTab:CreateToggle({
@@ -788,7 +811,6 @@ elseif currentPlaceId == GAME_PLACEID then
         Callback = function()
             local currentTime = tick()
             
-            -- Cooldown check
             if currentTime - lastWebhookTest < 5 then
                 local remaining = math.ceil(5 - (currentTime - lastWebhookTest))
                 ArrayField:Notify({
@@ -819,7 +841,6 @@ elseif currentPlaceId == GAME_PLACEID then
                 Image = 4483362458
             })
             
-            -- Send test webhook regardless of toggle
             local tempEnabled = webhookEnabled
             webhookEnabled = true
             sendWebhook("Nail Fiend", Players.LocalPlayer.Name)
@@ -828,7 +849,16 @@ elseif currentPlaceId == GAME_PLACEID then
     })
     
     ArrayField:LoadConfiguration()
+    print("✅ Game UI loaded!")
 
 else
-    warn("Unknown PlaceId: " .. currentPlaceId)
+    warn("⚠️ Unknown PlaceId: " .. currentPlaceId)
 end
+
+end)
+
+if not success then
+    warn("❌ Script Error: " .. tostring(err))
+end
+
+print("✅ Script execution completed!")
