@@ -254,6 +254,9 @@ elseif currentPlaceId == GAME_PLACEID then
     local lastFiendFound = ""
     local webhookSent = false
     local lastWebhookTest = 0
+    local useCustomName = false
+    local customName = ""
+    local discordID = ""
     
     -- Load saved config
     pcall(function()
@@ -263,6 +266,9 @@ elseif currentPlaceId == GAME_PLACEID then
             webhookUrl = config.webhookUrl or ""
             webhookEnabled = config.webhookEnabled or false
             autoRunning = config.autoRunning or false
+            useCustomName = config.useCustomName or false
+            customName = config.customName or ""
+            discordID = config.discordID or ""
         end
     end)
     
@@ -272,7 +278,10 @@ elseif currentPlaceId == GAME_PLACEID then
             local config = {
                 webhookUrl = webhookUrl,
                 webhookEnabled = webhookEnabled,
-                autoRunning = autoRunning
+                autoRunning = autoRunning,
+                useCustomName = useCustomName,
+                customName = customName,
+                discordID = discordID
             }
             writefile("NQNSCR_Game.txt", HttpService:JSONEncode(config))
         end)
@@ -282,7 +291,7 @@ elseif currentPlaceId == GAME_PLACEID then
     local function generateRandomName()
         local prefixes = {
             "Pro", "Max", "Ace", "God", "Rex",
-            "Hex", "Sky", "Zen", "Kai", "Ray",
+            "Hex", "Zen", "Kai", "Ray",
             "Leo", "Jay", "Sam", "Ben", "Ken"
         }
         
@@ -307,6 +316,16 @@ elseif currentPlaceId == GAME_PLACEID then
         end
         
         return name
+    end
+    
+    -- Function to get name (custom or random)
+    local function getName()
+        if useCustomName and customName ~= "" then
+            -- Giới hạn tên tùy chỉnh ở 10 ký tự
+            return customName:sub(1, 10)
+        else
+            return generateRandomName()
+        end
     end
     
     local function pressKey(key)
@@ -375,7 +394,16 @@ elseif currentPlaceId == GAME_PLACEID then
                 emoji = "👼"
             end
             
+            -- Check if we should ping for Gun or Angel Fiend
+            local shouldPing = (fiendType == "Gun Fiend" or fiendType == "Angel Fiend") and discordID ~= ""
+            local contentText = ""
+            
+            if shouldPing then
+                contentText = "<@" .. discordID .. ">"
+            end
+            
             local data = {
+                ["content"] = contentText,
                 ["embeds"] = {{
                     ["title"] = emoji .. " " .. fiendType .. " Found!",
                     ["description"] = "A Fiend has been detected!",
@@ -528,11 +556,23 @@ elseif currentPlaceId == GAME_PLACEID then
             print("✅ Fiend detected: " .. result)
             lastFiendFound = result
             
+            print("📤 Sending webhook notification...")
             webhookSent = sendWebhook(result, playerName)
             
             if webhookSent then
-                print("🎯 Webhook sent successfully, preparing to leave...")
+                print("✅ Webhook sent successfully!")
+                print("⏳ Waiting 3 seconds to ensure webhook is delivered...")
+                task.wait(3)
+                print("🎯 Now preparing to leave...")
                 leaveRoblox()
+            else
+                print("⚠️ Webhook failed to send, but Fiend was detected")
+                ArrayField:Notify({
+                    Title = "Webhook Failed",
+                    Content = "Fiend found but webhook failed",
+                    Duration = 5,
+                    Image = 4483362458
+                })
             end
             
             return result
@@ -551,7 +591,7 @@ elseif currentPlaceId == GAME_PLACEID then
     
     -- Main Auto Sequence
     local function runFullSequence()
-        local randomName = generateRandomName()
+        local randomName = getName()
         
         currentStep = "Step 1: BackSlash (ON)"
         print("→ " .. currentStep)
@@ -744,6 +784,47 @@ elseif currentPlaceId == GAME_PLACEID then
         end)
     end
     
+    MainTab:CreateSection("Name Settings")
+    
+    MainTab:CreateToggle({
+        Name = "Use Custom Name",
+        CurrentValue = useCustomName,
+        Flag = "UseCustomName",
+        Callback = function(Value)
+            useCustomName = Value
+            saveConfig()
+            local modeText = Value and "Custom Name: " .. (customName ~= "" and customName or "Not set") or "Random Name"
+            print("Name mode: " .. modeText)
+            ArrayField:Notify({
+                Title = Value and "Custom Name ON" or "Random Name ON",
+                Content = modeText,
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    })
+    
+    MainTab:CreateInput({
+        Name = "Custom Name (Max 10 chars)",
+        PlaceholderText = "Enter name...",
+        RemoveTextAfterFocusLost = false,
+        Flag = "CustomName",
+        CurrentValue = customName,
+        Callback = function(Text)
+            customName = Text:sub(1, 10)
+            saveConfig()
+            print("Custom name: " .. customName)
+            ArrayField:Notify({
+                Title = "Name Saved",
+                Content = "Custom name: " .. (customName ~= "" and customName or "Empty"),
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    })
+    
+    MainTab:CreateSection("Actions")
+    
     MainTab:CreateButton({
         Name = "Check Fiend Now",
         Callback = function()
@@ -806,6 +887,25 @@ elseif currentPlaceId == GAME_PLACEID then
         end
     })
     
+    MainTab:CreateInput({
+        Name = "Discord ID (Ping for Gun/Angel)",
+        PlaceholderText = "Your Discord ID...",
+        RemoveTextAfterFocusLost = false,
+        Flag = "DiscordID",
+        CurrentValue = discordID,
+        Callback = function(Text)
+            discordID = Text
+            saveConfig()
+            print("Discord ID: " .. Text)
+            ArrayField:Notify({
+                Title = "Discord ID Saved",
+                Content = "Will ping for Gun/Angel Fiend",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    })
+    
     MainTab:CreateButton({
         Name = "Test Webhook",
         Callback = function()
@@ -843,7 +943,7 @@ elseif currentPlaceId == GAME_PLACEID then
             
             local tempEnabled = webhookEnabled
             webhookEnabled = true
-            sendWebhook("Nail Fiend", Players.LocalPlayer.Name)
+            sendWebhook("Gun Fiend", Players.LocalPlayer.Name)
             webhookEnabled = tempEnabled
         end
     })
