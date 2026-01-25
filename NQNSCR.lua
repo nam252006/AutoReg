@@ -249,8 +249,10 @@ elseif currentPlaceId == GAME_PLACEID then
     local autoRunning = false
     local currentStep = "Idle"
     local retryCount = 0
-    local webhookUrl = ""
-    local webhookEnabled = false
+    local webhookUrl1 = ""  -- Webhook 1: All fiends with full info
+    local webhookUrl2 = ""  -- Webhook 2: Only Violence/Gun/Angel/Blood, no player name
+    local webhook1Enabled = false
+    local webhook2Enabled = false
     local lastFiendFound = ""
     local webhookSent = false
     local lastWebhookTest = 0
@@ -263,8 +265,10 @@ elseif currentPlaceId == GAME_PLACEID then
         if isfile("NQNSCR_Game.txt") then
             local configData = readfile("NQNSCR_Game.txt")
             local config = HttpService:JSONDecode(configData)
-            webhookUrl = config.webhookUrl or ""
-            webhookEnabled = config.webhookEnabled or false
+            webhookUrl1 = config.webhookUrl1 or ""
+            webhookUrl2 = config.webhookUrl2 or ""
+            webhook1Enabled = config.webhook1Enabled or false
+            webhook2Enabled = config.webhook2Enabled or false
             autoRunning = config.autoRunning or false
             useCustomName = config.useCustomName or false
             customName = config.customName or ""
@@ -276,8 +280,10 @@ elseif currentPlaceId == GAME_PLACEID then
     local function saveConfig()
         pcall(function()
             local config = {
-                webhookUrl = webhookUrl,
-                webhookEnabled = webhookEnabled,
+                webhookUrl1 = webhookUrl1,
+                webhookUrl2 = webhookUrl2,
+                webhook1Enabled = webhook1Enabled,
+                webhook2Enabled = webhook2Enabled,
                 autoRunning = autoRunning,
                 useCustomName = useCustomName,
                 customName = customName,
@@ -299,18 +305,14 @@ elseif currentPlaceId == GAME_PLACEID then
         local name = ""
         
         if formatType == 1 then
-            -- Format: Prefix + 4 số (VD: Pro1234)
             name = prefixes[math.random(1, #prefixes)] .. math.random(1000, 9999)
         elseif formatType == 2 then
-            -- Format: Prefix + 5 số (VD: Max12345)
             name = prefixes[math.random(1, #prefixes)] .. math.random(10000, 99999)
         else
-            -- Format: Prefix + 3 số + chữ (VD: Ace123X)
             local letters = "XYZABCDEFGH"
             name = prefixes[math.random(1, #prefixes)] .. math.random(100, 999) .. letters:sub(math.random(1, #letters), math.random(1, #letters))
         end
         
-        -- Đảm bảo không quá 10 ký tự
         if #name > 10 then
             name = prefixes[math.random(1, #prefixes)] .. math.random(1000, 9999)
         end
@@ -321,7 +323,6 @@ elseif currentPlaceId == GAME_PLACEID then
     -- Function to get name (custom or random)
     local function getName()
         if useCustomName and customName ~= "" then
-            -- Giới hạn tên tùy chỉnh ở 10 ký tự
             return customName:sub(1, 10)
         else
             return generateRandomName()
@@ -361,107 +362,167 @@ elseif currentPlaceId == GAME_PLACEID then
         end)
     end
     
-    -- Webhook function
+    -- Dual Webhook function
     local function sendWebhook(fiendType, playerName)
-        if not webhookEnabled then
-            print("⚠️ Webhook is disabled")
-            return false
+        local webhook1Success = false
+        local webhook2Success = false
+        
+        -- Color and emoji setup
+        local color = 3066993
+        local emoji = "👹"
+        
+        if fiendType == "Nail Fiend" then
+            color = 15158332
+            emoji = "🔨"
+        elseif fiendType == "Shark Fiend" then
+            color = 3447003
+            emoji = "🦈"
+        elseif fiendType == "Gun Fiend" then
+            color = 10181046
+            emoji = "🔫"
+        elseif fiendType == "Blood Fiend" then
+            color = 15548997
+            emoji = "🩸"
+        elseif fiendType == "Angel Fiend" then
+            color = 16777215
+            emoji = "👼"
+        elseif fiendType == "Violence Fiend" then
+            color = 16711680
+            emoji = "💀"
         end
         
-        if webhookUrl == "" then
-            print("⚠️ Webhook URL not set!")
-            return false
-        end
+        local shouldPing = (fiendType == "Gun Fiend" or fiendType == "Angel Fiend") and discordID ~= ""
+        local contentText = shouldPing and ("<@" .. discordID .. ">") or ""
         
-        local success, err = pcall(function()
-            local color = 3066993
-            local emoji = "👹"
-            
-            if fiendType == "Nail Fiend" then
-                color = 15158332
-                emoji = "🔨"
-            elseif fiendType == "Shark Fiend" then
-                color = 3447003
-                emoji = "🦈"
-            elseif fiendType == "Gun Fiend" then
-                color = 10181046
-                emoji = "🔫"
-            elseif fiendType == "Blood Fiend" then
-                color = 15548997
-                emoji = "🩸"
-            elseif fiendType == "Angel Fiend" then
-                color = 16777215
-                emoji = "👼"
-            end
-            
-            -- Check if we should ping for Gun or Angel Fiend
-            local shouldPing = (fiendType == "Gun Fiend" or fiendType == "Angel Fiend") and discordID ~= ""
-            local contentText = ""
-            
-            if shouldPing then
-                contentText = "<@" .. discordID .. ">"
-            end
-            
-            local data = {
-                ["content"] = contentText,
-                ["embeds"] = {{
-                    ["title"] = emoji .. " " .. fiendType .. " Found!",
-                    ["description"] = "A Fiend has been detected!",
-                    ["color"] = color,
-                    ["fields"] = {
-                        {
-                            ["name"] = "👤 Player",
-                            ["value"] = playerName,
-                            ["inline"] = true
+        -- WEBHOOK 1: All fiends with full info
+        if webhook1Enabled and webhookUrl1 ~= "" then
+            local success1, err1 = pcall(function()
+                local data = {
+                    ["content"] = contentText,
+                    ["embeds"] = {{
+                        ["title"] = emoji .. " " .. fiendType .. " Found!",
+                        ["description"] = "A Fiend has been detected!",
+                        ["color"] = color,
+                        ["fields"] = {
+                            {
+                                ["name"] = "👤 Player",
+                                ["value"] = playerName,
+                                ["inline"] = true
+                            },
+                            {
+                                ["name"] = "👹 Fiend Type",
+                                ["value"] = fiendType,
+                                ["inline"] = true
+                            },
+                            {
+                                ["name"] = "⏰ Time",
+                                ["value"] = os.date("%Y-%m-%d %H:%M:%S"),
+                                ["inline"] = false
+                            }
                         },
-                        {
-                            ["name"] = "👹 Fiend Type",
-                            ["value"] = fiendType,
-                            ["inline"] = true
+                        ["footer"] = {
+                            ["text"] = "Webhook 1 - Full Info | guns.lol/shopbss"
                         },
-                        {
-                            ["name"] = "⏰ Time",
-                            ["value"] = os.date("%Y-%m-%d %H:%M:%S"),
-                            ["inline"] = false
-                        }
+                        ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S")
+                    }}
+                }
+                
+                local response = request({
+                    Url = webhookUrl1,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
                     },
-                    ["footer"] = {
-                        ["text"] = "Ngô Quang Nam - guns.lol/shopbss"
-                    },
-                    ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S")
-                }}
-            }
-            
-            local response = request({
-                Url = webhookUrl,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = HttpService:JSONEncode(data)
-            })
-            
-            if response.StatusCode == 204 then
-                print("✅ Webhook sent successfully!")
-                ArrayField:Notify({
-                    Title = "Webhook Sent",
-                    Content = fiendType .. " detected!",
-                    Duration = 3,
-                    Image = 4483362458
+                    Body = HttpService:JSONEncode(data)
                 })
-                return true
-            else
-                print("⚠️ Webhook failed: " .. response.StatusCode)
-                return false
+                
+                if response.StatusCode == 204 then
+                    print("✅ Webhook 1 sent successfully!")
+                    webhook1Success = true
+                else
+                    print("⚠️ Webhook 1 failed: " .. response.StatusCode)
+                end
+            end)
+            
+            if not success1 then
+                warn("❌ Webhook 1 error: " .. tostring(err1))
             end
-        end)
-        
-        if not success then
-            warn("❌ Webhook error: " .. tostring(err))
-            return false
         end
         
-        return success
+        -- WEBHOOK 2: Only Violence/Gun/Angel/Blood, no player name
+        local webhook2Fiends = {
+            ["Violence Fiend"] = true,
+            ["Gun Fiend"] = true,
+            ["Angel Fiend"] = true,
+            ["Blood Fiend"] = true
+        }
+        
+        if webhook2Enabled and webhookUrl2 ~= "" and webhook2Fiends[fiendType] then
+            local success2, err2 = pcall(function()
+                local data = {
+                    ["content"] = contentText,
+                    ["embeds"] = {{
+                        ["title"] = emoji .. " " .. fiendType .. " Found!",
+                        ["description"] = "A rare Fiend has been detected!",
+                        ["color"] = color,
+                        ["fields"] = {
+                            {
+                                ["name"] = "👹 Fiend Type",
+                                ["value"] = fiendType,
+                                ["inline"] = true
+                            },
+                            {
+                                ["name"] = "⏰ Time",
+                                ["value"] = os.date("%Y-%m-%d %H:%M:%S"),
+                                ["inline"] = true
+                            }
+                        },
+                        ["footer"] = {
+                            ["text"] = "Webhook 2 - Rare Fiends Only | guns.lol/shopbss"
+                        },
+                        ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S")
+                    }}
+                }
+                
+                local response = request({
+                    Url = webhookUrl2,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = HttpService:JSONEncode(data)
+                })
+                
+                if response.StatusCode == 204 then
+                    print("✅ Webhook 2 sent successfully!")
+                    webhook2Success = true
+                else
+                    print("⚠️ Webhook 2 failed: " .. response.StatusCode)
+                end
+            end)
+            
+            if not success2 then
+                warn("❌ Webhook 2 error: " .. tostring(err2))
+            end
+        elseif webhook2Enabled and webhookUrl2 ~= "" then
+            print("ℹ️ Webhook 2 skipped - " .. fiendType .. " is not in filter list")
+        end
+        
+        -- Notify user
+        local sentCount = 0
+        if webhook1Success then sentCount = sentCount + 1 end
+        if webhook2Success then sentCount = sentCount + 1 end
+        
+        if sentCount > 0 then
+            ArrayField:Notify({
+                Title = "Webhook Sent",
+                Content = fiendType .. " detected! (" .. sentCount .. " webhooks)",
+                Duration = 3,
+                Image = 4483362458
+            })
+        end
+        
+        return webhook1Success or webhook2Success
     end
     
     -- Check for Fiend
@@ -501,6 +562,7 @@ elseif currentPlaceId == GAME_PLACEID then
             local hasGunFiend = false
             local hasBloodFiend = false
             local hasAngelFiend = false
+            local hasViolenceFiend = false
             
             print("📋 Scanning for Fiend parts...")
             
@@ -532,12 +594,19 @@ elseif currentPlaceId == GAME_PLACEID then
                         print("👼 FOUND: Angel Fiend wings (" .. childName .. ")")
                         hasAngelFiend = true
                     end
+                    
+                    if string.find(childName, "ViolenceFiend") or string.find(childName, "Violence") then
+                        print("💀 FOUND: Violence Fiend part (" .. childName .. ")")
+                        hasViolenceFiend = true
+                    end
                 end
             end
             
             searchDescendants(playerEntity)
             
-            if hasNailFiend then
+            if hasViolenceFiend then
+                return "Violence Fiend"
+            elseif hasNailFiend then
                 return "Nail Fiend"
             elseif hasSharkFiend then
                 return "Shark Fiend"
@@ -556,20 +625,20 @@ elseif currentPlaceId == GAME_PLACEID then
             print("✅ Fiend detected: " .. result)
             lastFiendFound = result
             
-            print("📤 Sending webhook notification...")
+            print("📤 Sending webhook notifications...")
             webhookSent = sendWebhook(result, playerName)
             
             if webhookSent then
-                print("✅ Webhook sent successfully!")
-                print("⏳ Waiting 3 seconds to ensure webhook is delivered...")
+                print("✅ Webhook(s) sent successfully!")
+                print("⏳ Waiting 3 seconds to ensure webhooks are delivered...")
                 task.wait(3)
                 print("🎯 Now preparing to leave...")
                 leaveRoblox()
             else
-                print("⚠️ Webhook failed to send, but Fiend was detected")
+                print("⚠️ All webhooks failed, but Fiend was detected")
                 ArrayField:Notify({
                     Title = "Webhook Failed",
-                    Content = "Fiend found but webhook failed",
+                    Content = "Fiend found but webhooks failed",
                     Duration = 5,
                     Image = 4483362458
                 })
@@ -851,17 +920,17 @@ elseif currentPlaceId == GAME_PLACEID then
     
     MainTab:CreateSection("Webhook Settings")
     
+    -- Webhook 1
     MainTab:CreateToggle({
-        Name = "Enable Webhook",
-        CurrentValue = webhookEnabled,
-        Flag = "WebhookEnabled",
+        Name = "Enable Webhook 1 (All Fiends)",
+        CurrentValue = webhook1Enabled,
+        Flag = "Webhook1Enabled",
         Callback = function(Value)
-            webhookEnabled = Value
+            webhook1Enabled = Value
             saveConfig()
-            print("Webhook " .. (Value and "enabled" or "disabled"))
             ArrayField:Notify({
-                Title = webhookEnabled and "Webhook ON" or "Webhook OFF",
-                Content = webhookEnabled and "Will send to Discord" or "Notifications disabled",
+                Title = webhook1Enabled and "Webhook 1 ON" or "Webhook 1 OFF",
+                Content = "All fiends with full info",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -869,18 +938,52 @@ elseif currentPlaceId == GAME_PLACEID then
     })
     
     MainTab:CreateInput({
-        Name = "Webhook URL",
+        Name = "Webhook 1 URL",
         PlaceholderText = "https://discord.com/api/webhooks/...",
         RemoveTextAfterFocusLost = false,
-        Flag = "WebhookURL",
-        CurrentValue = webhookUrl,
+        Flag = "Webhook1URL",
+        CurrentValue = webhookUrl1,
         Callback = function(Text)
-            webhookUrl = Text
+            webhookUrl1 = Text
             saveConfig()
-            print("Webhook URL: " .. Text)
             ArrayField:Notify({
-                Title = "URL Saved",
-                Content = "Webhook URL updated",
+                Title = "Webhook 1 Saved",
+                Content = "URL updated",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    })
+    
+    -- Webhook 2
+    MainTab:CreateToggle({
+        Name = "Enable Webhook 2 (Rare Only)",
+        CurrentValue = webhook2Enabled,
+        Flag = "Webhook2Enabled",
+        Callback = function(Value)
+            webhook2Enabled = Value
+            saveConfig()
+            ArrayField:Notify({
+                Title = webhook2Enabled and "Webhook 2 ON" or "Webhook 2 OFF",
+                Content = "Violence/Gun/Angel/Blood only",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    })
+    
+    MainTab:CreateInput({
+        Name = "Webhook 2 URL",
+        PlaceholderText = "https://discord.com/api/webhooks/...",
+        RemoveTextAfterFocusLost = false,
+        Flag = "Webhook2URL",
+        CurrentValue = webhookUrl2,
+        Callback = function(Text)
+            webhookUrl2 = Text
+            saveConfig()
+            ArrayField:Notify({
+                Title = "Webhook 2 Saved",
+                Content = "URL updated",
                 Duration = 2,
                 Image = 4483362458
             })
@@ -896,7 +999,6 @@ elseif currentPlaceId == GAME_PLACEID then
         Callback = function(Text)
             discordID = Text
             saveConfig()
-            print("Discord ID: " .. Text)
             ArrayField:Notify({
                 Title = "Discord ID Saved",
                 Content = "Will ping for Gun/Angel Fiend",
@@ -907,7 +1009,7 @@ elseif currentPlaceId == GAME_PLACEID then
     })
     
     MainTab:CreateButton({
-        Name = "Test Webhook",
+        Name = "Test Webhooks",
         Callback = function()
             local currentTime = tick()
             
@@ -922,10 +1024,10 @@ elseif currentPlaceId == GAME_PLACEID then
                 return
             end
             
-            if webhookUrl == "" then
+            if webhookUrl1 == "" and webhookUrl2 == "" then
                 ArrayField:Notify({
-                    Title = "No URL",
-                    Content = "Set webhook URL first",
+                    Title = "No URLs",
+                    Content = "Set at least one webhook URL first",
                     Duration = 3,
                     Image = 4483362458
                 })
@@ -936,15 +1038,18 @@ elseif currentPlaceId == GAME_PLACEID then
             
             ArrayField:Notify({
                 Title = "Testing",
-                Content = "Sending test webhook...",
+                Content = "Sending test webhooks...",
                 Duration = 2,
                 Image = 4483362458
             })
             
-            local tempEnabled = webhookEnabled
-            webhookEnabled = true
+            local temp1 = webhook1Enabled
+            local temp2 = webhook2Enabled
+            webhook1Enabled = webhookUrl1 ~= ""
+            webhook2Enabled = webhookUrl2 ~= ""
             sendWebhook("Gun Fiend", Players.LocalPlayer.Name)
-            webhookEnabled = tempEnabled
+            webhook1Enabled = temp1
+            webhook2Enabled = temp2
         end
     })
     
